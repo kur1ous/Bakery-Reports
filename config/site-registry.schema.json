@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bakery-reports.local/site-registry.schema.json",
+  "title": "Sportsbook Site Registry",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["siteCode", "siteName", "defaultCurrency", "stakeKind", "active"],
+    "properties": {
+      "siteCode": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 16,
+        "pattern": "^[A-Z0-9_]+$"
+      },
+      "siteName": {
+        "type": "string",
+        "minLength": 1
+      },
+      "domains": {
+        "type": "array",
+        "items": { "type": "string" },
+        "default": []
+      },
+      "defaultCurrency": {
+        "type": "string",
+        "enum": ["USD", "CAD"]
+      },
+      "stakeKind": {
+        "type": "string",
+        "enum": ["cash", "bonus_or_cash"]
+      },
+      "active": {
+        "type": "boolean"
+      }
+    }
+  }
+}
