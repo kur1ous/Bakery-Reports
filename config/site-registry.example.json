@@ -1,0 +1,18 @@
+[
+  {
+    "siteCode": "MBK",
+    "siteName": "MyBookie",
+    "domains": ["engine.mybookie.ag"],
+    "defaultCurrency": "USD",
+    "stakeKind": "bonus_or_cash",
+    "active": true
+  },
+  {
+    "siteCode": "TSB",
+    "siteName": "theScore Bet",
+    "domains": ["thescore.bet"],
+    "defaultCurrency": "CAD",
+    "stakeKind": "cash",
+    "active": true
+  }
+]
