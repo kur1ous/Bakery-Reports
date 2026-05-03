@@ -6,6 +6,7 @@ export const leagueSchema = z.enum(["NBA", "NFL", "MLB", "NHL"]);
 export const betTypeSchema = z.enum(["cash", "bonus"]);
 export const marketTypeSchema = z.enum(["moneyline", "spread", "total"]);
 export const totalSideSchema = z.enum(["over", "under"]);
+export const dateSourceSchema = z.enum(["explicit", "relative", "inferred"]);
 const dateTimeSchema = z.preprocess(normalizeDateTimeInput, z.string().datetime());
 const marketLineSchema = z.preprocess(normalizeNumberInput, z.number().finite()).nullable().optional();
 
@@ -24,6 +25,7 @@ export const extractedBetSchema = z.object({
   homeTeam: z.string().trim().min(1),
   awayTeam: z.string().trim().min(1),
   eventStartAt: dateTimeSchema,
+  dateSource: dateSourceSchema.default("explicit"),
   oddsDecimal: z.number().positive(),
   stakeAmount: z.number().min(0),
   payoutAmount: z.number().min(0),
@@ -129,6 +131,7 @@ export const geminiExtractionJsonSchema = {
           "homeTeam",
           "awayTeam",
           "eventStartAt",
+          "dateSource",
           "oddsDecimal",
           "stakeAmount",
           "payoutAmount",
@@ -158,6 +161,11 @@ export const geminiExtractionJsonSchema = {
           homeTeam: { type: "string" },
           awayTeam: { type: "string" },
           eventStartAt: { type: "string", description: "ISO 8601 game start timestamp." },
+          dateSource: {
+            type: "string",
+            enum: ["explicit", "relative", "inferred"],
+            description: "Use explicit when a full date is shown, relative when the screenshot says Today/Tomorrow, and inferred when the date is guessed from context."
+          },
           oddsDecimal: { type: "number" },
           stakeAmount: { type: "number" },
           payoutAmount: { type: "number" },

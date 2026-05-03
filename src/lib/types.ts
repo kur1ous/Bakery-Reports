@@ -2,6 +2,7 @@ export type Currency = "USD" | "CAD";
 export type BetType = "cash" | "bonus";
 export type MarketType = "moneyline" | "spread" | "total";
 export type TotalSide = "over" | "under";
+export type DateSource = "explicit" | "relative" | "inferred";
 export type League = "NBA" | "NFL" | "MLB" | "NHL";
 
 export interface ExtractedBet {
@@ -19,6 +20,7 @@ export interface ExtractedBet {
   homeTeam: string;
   awayTeam: string;
   eventStartAt: string;
+  dateSource: DateSource;
   oddsDecimal: number;
   stakeAmount: number;
   payoutAmount: number;

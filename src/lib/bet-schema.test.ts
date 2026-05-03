@@ -32,6 +32,7 @@ describe("parseExtractedBetBatch", () => {
 
     expect(result.bets).toHaveLength(1);
     expect(result.bets[0].marketType).toBe("moneyline");
+    expect(result.bets[0].dateSource).toBe("explicit");
   });
 
   it("normalizes common screenshot date strings before validation", () => {
@@ -150,6 +151,72 @@ describe("parseExtractedBetBatch", () => {
         ]
       })
     ).toThrow(/marketLine|totalSide/i);
+  });
+
+  it("accepts relative event date source rows for manual review", () => {
+    const result = parseExtractedBetBatch({
+      sourceFile: "cloudbet-today.png",
+      extractedAt: "2026-04-01T15:15:00.000Z",
+      bets: [
+        {
+          sourceFile: "cloudbet-today.png",
+          siteCode: "CBT",
+          siteName: "Cloudbet",
+          ticketId: "cloudbet-active",
+          placedAt: "2026-04-01T15:15:00.000Z",
+          league: "NBA",
+          marketType: "moneyline",
+          betType: "cash",
+          selectedTeam: "BOS Celtics",
+          homeTeam: "BOS Celtics",
+          awayTeam: "MIA Heat",
+          eventStartAt: "2026-04-01T23:30:00.000Z",
+          dateSource: "relative",
+          oddsDecimal: 1.52,
+          stakeAmount: 260,
+          payoutAmount: 395.2,
+          winAmount: 135.2,
+          currency: "USD",
+          confidence: 0.82,
+          notes: "Cloudbet showed Today; confirm event date before matching."
+        }
+      ]
+    });
+
+    expect(result.bets[0].dateSource).toBe("relative");
+    expect(result.bets[0].notes).toMatch(/confirm event date/i);
+  });
+
+  it("rejects unsupported date source values", () => {
+    expect(() =>
+      parseExtractedBetBatch({
+        sourceFile: "bad-date-source.png",
+        extractedAt: "2026-04-01T15:15:00.000Z",
+        bets: [
+          {
+            sourceFile: "bad-date-source.png",
+            siteCode: "CBT",
+            siteName: "Cloudbet",
+            ticketId: "cloudbet-active",
+            placedAt: "2026-04-01T15:15:00.000Z",
+            league: "NBA",
+            marketType: "moneyline",
+            betType: "cash",
+            selectedTeam: "BOS Celtics",
+            homeTeam: "BOS Celtics",
+            awayTeam: "MIA Heat",
+            eventStartAt: "2026-04-01T23:30:00.000Z",
+            dateSource: "today",
+            oddsDecimal: 1.52,
+            stakeAmount: 260,
+            payoutAmount: 395.2,
+            winAmount: 135.2,
+            currency: "USD",
+            confidence: 0.82
+          }
+        ]
+      })
+    ).toThrow(/dateSource/i);
   });
 
   it("rejects unsupported markets for v1", () => {

@@ -32,7 +32,8 @@ const RAW_HEADERS = [
   "rawJson",
   "ingestedAt",
   "marketLine",
-  "totalSide"
+  "totalSide",
+  "dateSource"
 ];
 
 const MATCHED_HEADERS = [
@@ -513,6 +514,9 @@ function validateBet_(bet) {
   }
   if (bet.marketType !== "total" && bet.totalSide) {
     throw new Error("totalSide is only allowed for total bets.");
+  }
+  if (bet.dateSource && ["explicit", "relative", "inferred"].indexOf(String(bet.dateSource)) === -1) {
+    throw new Error("Unsupported dateSource: " + bet.dateSource);
   }
   if (!SPORT_KEYS[bet.league]) throw new Error("Unsupported league: " + bet.league);
   if (["USD", "CAD"].indexOf(bet.currency) === -1) throw new Error("Unsupported currency: " + bet.currency);
