@@ -18,6 +18,7 @@ Rules:
 - For cash bets, set betType to "cash", stakeAmount to the cash stake, payoutAmount to total potential payout, and winAmount to payout minus stake.
 - Convert all dates to ISO 8601. If timezone is ambiguous, use America/Toronto.
 - Set dateSource to "explicit" when the screenshot shows a calendar date, "relative" when it says Today/Tomorrow/etc., and "inferred" when you must infer the date from context.
+- If a sportsbook date shows month/day and time but no year, use the current year (${new Date().getFullYear()}) and set dateSource to "inferred".
 - For relative event dates such as Today or Tomorrow, use the screenshot capture date if visible in the image. If the actual calendar date is not visible, make the best ISO estimate and add a notes warning that the event date must be confirmed before matching.
 - If a team is abbreviated in the screenshot, keep the visible text; downstream matching normalizes common aliases.
 - If no supported bet is visible, return an empty bets array.`;
