@@ -2,11 +2,15 @@ import { GoogleGenAI } from "@google/genai";
 import { geminiExtractionJsonSchema, parseExtractedBetBatch } from "./bet-schema";
 import type { ExtractedBetBatch } from "./types";
 
-const EXTRACTION_PROMPT = `Extract confirmed open straight moneyline bets from this sportsbook screenshot.
+const EXTRACTION_PROMPT = `Extract confirmed open straight bets from this sportsbook screenshot.
 
 Rules:
 - Return only bets that are confirmed/accepted/open in the screenshot.
-- V1 supports only straight moneyline bets for NBA, NFL, MLB, and NHL. Ignore spreads, totals, parlays, props, promos, and navigation odds.
+- V1 supports only straight moneyline, spread, and total bets for NBA, NFL, MLB, and NHL. Ignore parlays, props, promos, and navigation odds.
+- Set marketType to "moneyline", "spread", or "total".
+- For spread bets, set selectedTeam to the spread side and marketLine to the signed line from that side, e.g. Toronto +8 = 8 and Cleveland -8 = -8.
+- For total bets, set totalSide to "over" or "under", marketLine to the points total, and selectedTeam to an empty string.
+- For moneyline bets, set marketLine and totalSide to null.
 - Preserve the sportsbook ticket ID if visible.
 - Use decimal odds. If odds are American, convert them to decimal.
 - Use CAD or USD based on the sportsbook/account display and any visible currency context.

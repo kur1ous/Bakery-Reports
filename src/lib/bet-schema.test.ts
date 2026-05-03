@@ -66,7 +66,93 @@ describe("parseExtractedBetBatch", () => {
     expect(result.bets[0].eventStartAt).toBe("2026-05-03T23:30:00.000Z");
   });
 
-  it("rejects non-moneyline markets for v1", () => {
+  it("accepts straight spread and total extraction rows with required line fields", () => {
+    const result = parseExtractedBetBatch({
+      sourceFile: "markets.png",
+      extractedAt: "2026-05-02T07:45:00.000Z",
+      bets: [
+        {
+          sourceFile: "markets.png",
+          siteCode: "MBK",
+          siteName: "MyBookie",
+          ticketId: "spread-ticket",
+          placedAt: "2026-05-02T07:40:00.000Z",
+          league: "NBA",
+          marketType: "spread",
+          marketLine: 8,
+          betType: "cash",
+          selectedTeam: "Philadelphia 76ers",
+          homeTeam: "Boston Celtics",
+          awayTeam: "Philadelphia 76ers",
+          eventStartAt: "2026-05-03T23:30:00.000Z",
+          oddsDecimal: 1.91,
+          stakeAmount: 100,
+          payoutAmount: 191,
+          winAmount: 91,
+          currency: "USD",
+          confidence: 0.91
+        },
+        {
+          sourceFile: "markets.png",
+          siteCode: "TSB",
+          siteName: "theScore Bet",
+          ticketId: "total-ticket",
+          placedAt: "2026-05-02T07:41:00.000Z",
+          league: "NBA",
+          marketType: "total",
+          marketLine: 205.5,
+          totalSide: "under",
+          betType: "cash",
+          selectedTeam: "",
+          homeTeam: "Boston Celtics",
+          awayTeam: "Philadelphia 76ers",
+          eventStartAt: "2026-05-03T23:30:00.000Z",
+          oddsDecimal: 1.91,
+          stakeAmount: 100,
+          payoutAmount: 191,
+          winAmount: 91,
+          currency: "CAD",
+          confidence: 0.91
+        }
+      ]
+    });
+
+    expect(result.bets.map((bet) => bet.marketType)).toEqual(["spread", "total"]);
+    expect(result.bets[1].totalSide).toBe("under");
+  });
+
+  it("rejects spread and total rows missing required line fields", () => {
+    expect(() =>
+      parseExtractedBetBatch({
+        sourceFile: "bad-total.png",
+        extractedAt: "2026-05-02T07:45:00.000Z",
+        bets: [
+          {
+            sourceFile: "bad-total.png",
+            siteCode: "TSB",
+            siteName: "theScore Bet",
+            ticketId: "bad-total",
+            placedAt: "2026-05-02T07:41:00.000Z",
+            league: "NBA",
+            marketType: "total",
+            betType: "cash",
+            selectedTeam: "",
+            homeTeam: "Boston Celtics",
+            awayTeam: "Philadelphia 76ers",
+            eventStartAt: "2026-05-03T23:30:00.000Z",
+            oddsDecimal: 1.91,
+            stakeAmount: 100,
+            payoutAmount: 191,
+            winAmount: 91,
+            currency: "CAD",
+            confidence: 0.91
+          }
+        ]
+      })
+    ).toThrow(/marketLine|totalSide/i);
+  });
+
+  it("rejects unsupported markets for v1", () => {
     expect(() =>
       parseExtractedBetBatch({
         sourceFile: "spread.png",
@@ -79,7 +165,7 @@ describe("parseExtractedBetBatch", () => {
             ticketId: "294422281",
             placedAt: "2026-05-02T07:40:00.000Z",
             league: "NBA",
-            marketType: "spread",
+            marketType: "parlay",
             betType: "bonus",
             selectedTeam: "Toronto Raptors",
             homeTeam: "Cleveland Cavaliers",
@@ -94,6 +180,6 @@ describe("parseExtractedBetBatch", () => {
           }
         ]
       })
-    ).toThrow(/moneyline/i);
+    ).toThrow(/moneyline, spread, and total/i);
   });
 });

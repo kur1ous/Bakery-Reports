@@ -5,11 +5,12 @@ Private bet screenshot extraction and Google Sheets ledger tooling.
 ## What It Does
 
 - Upload multiple sportsbook screenshots.
-- Extract confirmed straight moneyline bets with Gemini `gemini-2.5-flash`.
+- Extract confirmed straight moneyline, spread, and total bets with Gemini `gemini-2.5-flash`.
 - Review and edit extracted rows before writing to Google Sheets.
 - Send approved rows to an Apps Script web app.
 - Let Apps Script maintain `Raw Data`, `Matched Pairs`, `Clean Bets`, `Site Config`, `FX Rates`, and `Settlement Cache`.
 - Settle NBA/NFL/MLB/NHL games from The Odds API and keep a settlement-only USD running ledger.
+- Match spreads only on exact opposite lines and totals only on exact over/under lines; pushes settle to `0` net USD.
 
 ## Local Development
 
@@ -38,5 +39,6 @@ The configurable sportsbook registry lives in the Google Sheet tab `Site Config`
 
 ```bash
 npm test
+npm run lint
 npm run build
 ```

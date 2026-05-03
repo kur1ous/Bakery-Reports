@@ -1,4 +1,4 @@
-import { convertToUsd, settleBetNetUsd } from "./ledger";
+import { convertToUsd, roundUsd } from "./ledger";
 import { gameKeyForBet, normalizeTeamName } from "./matching";
 import type { CleanLedgerEntry, MatchedPair, ReviewedBet, ScoreEvent } from "./types";
 
@@ -35,7 +35,13 @@ export function settleMatchedPairs(
         continue;
       }
 
-      const result = normalizeTeamName(winningTeam) === normalizeTeamName(bet.selectedTeam) ? "win" : "loss";
+      const result = resultForBet(bet, score, winningTeam);
+      if (!result) {
+        continue;
+      }
+
+      const stakeUsd = convertToUsd(bet.stakeAmount, bet.currency, fxRate);
+      const payoutUsd = convertToUsd(bet.payoutAmount, bet.currency, fxRate);
       entries.push({
         pairId: pair.id,
         betId: bet.id,
@@ -44,9 +50,9 @@ export function settleMatchedPairs(
         selectedTeam: bet.selectedTeam,
         winningTeam,
         result,
-        stakeUsd: convertToUsd(bet.stakeAmount, bet.currency, fxRate),
-        payoutUsd: convertToUsd(bet.payoutAmount, bet.currency, fxRate),
-        netUsd: settleBetNetUsd(bet, winningTeam, bet.selectedTeam, fxRate),
+        stakeUsd,
+        payoutUsd,
+        netUsd: netUsdForResult(bet, result, stakeUsd, payoutUsd, fxRate),
         currency: bet.currency,
         fxRate
       });
@@ -87,4 +93,79 @@ function winningTeamFromScore(score: ScoreEvent): string | null {
   }
 
   return first.score > second.score ? first.name : second.name;
+}
+
+function resultForBet(bet: ReviewedBet, score: ScoreEvent, winningTeam: string): CleanLedgerEntry["result"] | null {
+  if (bet.marketType === "moneyline") {
+    return normalizeTeamName(winningTeam) === normalizeTeamName(bet.selectedTeam) ? "win" : "loss";
+  }
+
+  if (bet.marketType === "spread") {
+    if (bet.marketLine == null) {
+      return null;
+    }
+
+    const selectedScore = scoreForTeam(score, bet.selectedTeam);
+    const opponentScore = opponentScoreForTeam(score, bet.selectedTeam);
+    if (selectedScore == null || opponentScore == null) {
+      return null;
+    }
+
+    const adjustedMargin = selectedScore + bet.marketLine - opponentScore;
+    if (isPush(adjustedMargin)) {
+      return "push";
+    }
+
+    return adjustedMargin > 0 ? "win" : "loss";
+  }
+
+  if (bet.marketType === "total") {
+    if (bet.marketLine == null || !bet.totalSide) {
+      return null;
+    }
+
+    const totalScore = score.scores.reduce((sum, teamScore) => sum + teamScore.score, 0);
+    const margin = totalScore - bet.marketLine;
+    if (isPush(margin)) {
+      return "push";
+    }
+
+    return bet.totalSide === "over" ? (margin > 0 ? "win" : "loss") : margin < 0 ? "win" : "loss";
+  }
+
+  return null;
+}
+
+function scoreForTeam(score: ScoreEvent, team: string): number | null {
+  return score.scores.find((teamScore) => normalizeTeamName(teamScore.name) === normalizeTeamName(team))?.score ?? null;
+}
+
+function opponentScoreForTeam(score: ScoreEvent, team: string): number | null {
+  return score.scores.find((teamScore) => normalizeTeamName(teamScore.name) !== normalizeTeamName(team))?.score ?? null;
+}
+
+function netUsdForResult(
+  bet: ReviewedBet,
+  result: CleanLedgerEntry["result"],
+  stakeUsd: number,
+  payoutUsd: number,
+  fxRate: number
+): number {
+  if (result === "push") {
+    return 0;
+  }
+
+  if (result === "loss") {
+    return bet.betType === "bonus" ? 0 : -stakeUsd;
+  }
+
+  if (bet.betType === "bonus") {
+    return convertToUsd(bet.winAmount, bet.currency, fxRate);
+  }
+
+  return roundUsd(payoutUsd - stakeUsd);
+}
+
+function isPush(value: number): boolean {
+  return Math.abs(value) < 0.0001;
 }

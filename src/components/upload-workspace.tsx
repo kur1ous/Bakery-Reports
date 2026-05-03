@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import Script from "next/script";
+import { createElement, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   FileCheck2,
@@ -20,6 +21,9 @@ const editableFields: Array<keyof ReviewedBet> = [
   "siteName",
   "ticketId",
   "league",
+  "marketType",
+  "marketLine",
+  "totalSide",
   "betType",
   "currency",
   "selectedTeam",
@@ -75,7 +79,7 @@ export function UploadWorkspace() {
 
     setBets(payload.bets);
     setSelectedIds(new Set(payload.bets.map((bet: ReviewedBet) => bet.id)));
-    setStatus({ type: "success", message: `Extracted ${payload.bets.length} supported moneyline bet(s). Review before submitting.` });
+    setStatus({ type: "success", message: `Extracted ${payload.bets.length} supported straight bet(s). Review before submitting.` });
   }
 
   async function submit() {
@@ -115,11 +119,18 @@ export function UploadWorkspace() {
           "stakeAmount",
           "payoutAmount",
           "winAmount",
+          "marketLine",
           "confidence"
         ];
+        const nextValue = numericFields.includes(field)
+          ? value.trim() === "" && field === "marketLine"
+            ? null
+            : Number(value)
+          : value;
+
         return {
           ...bet,
-          [field]: numericFields.includes(field) ? Number(value) : value
+          [field]: nextValue
         };
       })
     );
@@ -135,6 +146,11 @@ export function UploadWorkspace() {
 
   return (
     <div className="appFrame">
+      <Script
+        src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.10/dist/dotlottie-wc.js"
+        type="module"
+        strategy="afterInteractive"
+      />
       <header className="topNav">
         <div className="topNavInner">
           <div className="brandArea">
@@ -149,8 +165,19 @@ export function UploadWorkspace() {
             <h1>Bet Screenshot Ledger</h1>
             <p>Securely upload and extract data from your betting platform screenshots.</p>
           </div>
-          <div className={`statusPill ${status.type}`} role="status">
-            {status.message}
+          <div className="statusArea">
+            {status.type === "loading" ? (
+              <div className="loadingAnimationSlot" aria-hidden="true">
+                {createElement("dotlottie-wc", {
+                  src: "https://lottie.host/bec33e46-c61b-4d6b-914c-46306b496f35/nJIqKsJPpF.lottie",
+                  autoplay: true,
+                  loop: true
+                })}
+              </div>
+            ) : null}
+            <div className={`statusPill ${status.type}`} role="status">
+              {status.message}
+            </div>
           </div>
         </section>
 

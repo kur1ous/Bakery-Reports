@@ -11,7 +11,7 @@ Instructions for agents working in this repository.
 
 ## Project Summary
 
-Bakery Reports is a private Next.js app for extracting straight moneyline bet data from sportsbook screenshots and writing reviewed results to Google Sheets.
+Bakery Reports is a private Next.js app for extracting straight moneyline, spread, and total bet data from sportsbook screenshots and writing reviewed results to Google Sheets.
 
 Main flow:
 
@@ -28,7 +28,7 @@ Main flow:
 - `src/components/upload-workspace.tsx` - Main upload/review UI.
 - `src/lib/bet-schema.ts` - Zod validation and Gemini JSON schema.
 - `src/lib/gemini.ts` - Server-side Gemini extraction.
-- `src/lib/matching.ts` - Team normalization and moneyline pair matching.
+- `src/lib/matching.ts` - Team normalization and straight-bet pair matching.
 - `src/lib/ledger.ts` - USD conversion and settlement net math.
 - `src/lib/settlement.ts` - Score-event settlement helpers.
 - `apps-script/Code.js` - Google Apps Script source for the target Sheet.
@@ -79,7 +79,7 @@ Run `npm audit --audit-level=moderate` after dependency changes.
 
 - Keep Gemini, Apps Script, and The Odds API keys server-side only.
 - Do not persist uploaded screenshots unless the user explicitly asks for image storage.
-- V1 supports straight moneyline bets only.
+- V1 supports straight moneyline, spread, and total bets only.
 - Supported leagues for automatic settlement are NBA, NFL, MLB, and NHL.
 - The Google Sheet `Site Config` tab is the runtime source of truth for sportsbook codes and currencies.
 - Use stored daily CAD-to-USD rates for historical stability. Do not use live formulas that can change old ledger values.
@@ -88,7 +88,11 @@ Run `npm audit --audit-level=moderate` after dependency changes.
   - Cash loss: `-stake_usd`
   - Bonus/free-play win: `win_usd`
   - Bonus/free-play loss: `0`
-- Pairing should match same-game, opposite-team, different-site moneyline bets and leave ambiguous extras unmatched.
+- Pairing should match same-game, different-site straight bets and leave ambiguous extras unmatched.
+- Moneyline pairs require opposite selected teams.
+- Spread pairs require opposite selected teams and exact opposite signed lines.
+- Total pairs require exact same line and opposite over/under sides.
+- Pushes settle with `result = push` and `net_usd = 0`.
 
 ## UI Rules
 

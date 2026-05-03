@@ -1,6 +1,7 @@
 export type Currency = "USD" | "CAD";
 export type BetType = "cash" | "bonus";
-export type MarketType = "moneyline";
+export type MarketType = "moneyline" | "spread" | "total";
+export type TotalSide = "over" | "under";
 export type League = "NBA" | "NFL" | "MLB" | "NHL";
 
 export interface ExtractedBet {
@@ -11,6 +12,8 @@ export interface ExtractedBet {
   placedAt: string;
   league: League;
   marketType: MarketType;
+  marketLine?: number | null;
+  totalSide?: TotalSide | null;
   betType: BetType;
   selectedTeam: string;
   homeTeam: string;
@@ -40,6 +43,8 @@ export interface MatchedPair {
   id: string;
   status: "matched" | "settled";
   gameKey: string;
+  marketType?: MarketType;
+  marketLine?: number | null;
   betIds: [string, string] | string[];
   createdAt: string;
   oddsApiEventId?: string | null;
