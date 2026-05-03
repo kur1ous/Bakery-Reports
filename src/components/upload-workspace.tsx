@@ -1,7 +1,7 @@
 "use client";
 
 import Script from "next/script";
-import { createElement, useMemo, useRef, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   FileCheck2,
@@ -50,6 +50,25 @@ export function UploadWorkspace() {
     () => bets.filter((bet) => selectedIds.has(bet.id)),
     [bets, selectedIds]
   );
+
+  useEffect(() => {
+    function handlePaste(event: ClipboardEvent) {
+      const pastedFiles = filesFromClipboard(event.clipboardData);
+      if (pastedFiles.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      setFiles((current) => [...current, ...pastedFiles]);
+      setStatus({
+        type: "success",
+        message: `Pasted ${pastedFiles.length} screenshot(s). ${pastedFiles.length === 1 ? "It is" : "They are"} ready to extract.`
+      });
+    }
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
 
   async function extract() {
     if (!password) {
@@ -221,7 +240,7 @@ export function UploadWorkspace() {
                   </span>
                   <span className="dropTitle">{files.length > 0 ? `${files.length} file(s) selected` : "Choose Files"}</span>
                   <span className="dropText">
-                    {files.length > 0 ? files.map((file) => file.name).join(", ") : "or drag and drop betting screenshots here"}
+                    {files.length > 0 ? files.map((file) => file.name).join(", ") : "or drag, drop, or paste betting screenshots here"}
                   </span>
                   <span className="formatBadges">
                     <span>PNG</span>
@@ -371,4 +390,43 @@ export function UploadWorkspace() {
       </footer>
     </div>
   );
+}
+
+function filesFromClipboard(clipboardData: DataTransfer | null): File[] {
+  const items = Array.from(clipboardData?.items ?? []);
+  return items
+    .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+    .map((item, index) => {
+      const file = item.getAsFile();
+      if (!file) {
+        return null;
+      }
+
+      return new File([file], pastedScreenshotName(file, index), {
+        type: file.type,
+        lastModified: Date.now()
+      });
+    })
+    .filter((file): file is File => file != null);
+}
+
+function pastedScreenshotName(file: File, index: number): string {
+  const extension = imageExtension(file.type);
+  return `pasted-screenshot-${Date.now()}-${index + 1}.${extension}`;
+}
+
+function imageExtension(mimeType: string): string {
+  if (mimeType === "image/jpeg") {
+    return "jpg";
+  }
+
+  if (mimeType === "image/webp") {
+    return "webp";
+  }
+
+  if (mimeType === "image/gif") {
+    return "gif";
+  }
+
+  return "png";
 }
