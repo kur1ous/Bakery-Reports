@@ -31,6 +31,7 @@ const editableFields: Array<keyof ReviewedBet> = [
   "awayTeam",
   "placedAt",
   "eventStartAt",
+  "dateSource",
   "oddsDecimal",
   "stakeAmount",
   "payoutAmount",
@@ -331,7 +332,7 @@ export function UploadWorkspace() {
                     </thead>
                     <tbody>
                       {bets.map((bet) => (
-                        <tr key={bet.id}>
+                        <tr key={bet.id} className={bet.dateSource === "relative" ? "needsDateReview" : undefined}>
                           <td>
                             <input
                               type="checkbox"
@@ -347,7 +348,12 @@ export function UploadWorkspace() {
                               }}
                             />
                           </td>
-                          <td>{bet.sourceFile}</td>
+                          <td>
+                            <span>{bet.sourceFile}</span>
+                            {bet.dateSource === "relative" ? (
+                              <span className="dateReviewBadge">Confirm event date</span>
+                            ) : null}
+                          </td>
                           {editableFields.map((field) => (
                             <td key={field}>
                               <input

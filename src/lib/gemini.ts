@@ -17,6 +17,8 @@ Rules:
 - For free play/bonus bets, set betType to "bonus", stakeAmount to the real-money risk visible in the ticket, and winAmount to the amount credited if it wins.
 - For cash bets, set betType to "cash", stakeAmount to the cash stake, payoutAmount to total potential payout, and winAmount to payout minus stake.
 - Convert all dates to ISO 8601. If timezone is ambiguous, use America/Toronto.
+- Set dateSource to "explicit" when the screenshot shows a calendar date, "relative" when it says Today/Tomorrow/etc., and "inferred" when you must infer the date from context.
+- For relative event dates such as Today or Tomorrow, use the screenshot capture date if visible in the image. If the actual calendar date is not visible, make the best ISO estimate and add a notes warning that the event date must be confirmed before matching.
 - If a team is abbreviated in the screenshot, keep the visible text; downstream matching normalizes common aliases.
 - If no supported bet is visible, return an empty bets array.`;
 
