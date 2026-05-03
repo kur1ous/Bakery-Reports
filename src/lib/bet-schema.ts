@@ -247,6 +247,26 @@ function parseLocalDateTimeParts(value: string): LocalDateTimeParts | null {
     };
   }
 
+  const numericWithoutYearMatch = value.match(
+    /^(\d{1,2})[/-](\d{1,2})(?:\s*(?:[•,]\s*)?(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i
+  );
+
+  if (numericWithoutYearMatch) {
+    const first = Number(numericWithoutYearMatch[1]);
+    const second = Number(numericWithoutYearMatch[2]);
+    const month = first > 12 ? second : first;
+    const day = first > 12 ? first : second;
+
+    return {
+      year: currentYear(),
+      month,
+      day,
+      hour: hour24(numericWithoutYearMatch[3] ? Number(numericWithoutYearMatch[3]) : 0, numericWithoutYearMatch[6]),
+      minute: numericWithoutYearMatch[4] ? Number(numericWithoutYearMatch[4]) : 0,
+      second: numericWithoutYearMatch[5] ? Number(numericWithoutYearMatch[5]) : 0
+    };
+  }
+
   const monthMatch = value.match(
     /^(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i
   );
@@ -281,6 +301,10 @@ function hour24(hour: number, meridiem?: string): number {
 function monthNumber(value: string): number {
   const prefix = value.slice(0, 3).toLowerCase();
   return ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(prefix) + 1;
+}
+
+function currentYear(): number {
+  return new Date().getFullYear();
 }
 
 function torontoLocalDateTimeToUtcIso(parts: LocalDateTimeParts): string {

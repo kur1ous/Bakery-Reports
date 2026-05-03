@@ -67,6 +67,40 @@ describe("parseExtractedBetBatch", () => {
     expect(result.bets[0].eventStartAt).toBe("2026-05-03T23:30:00.000Z");
   });
 
+  it("uses the current year for numeric screenshot dates without a year", () => {
+    const result = parseExtractedBetBatch({
+      sourceFile: "yearless-dates.png",
+      extractedAt: "2026-03-31T20:37:00.000Z",
+      bets: [
+        {
+          sourceFile: "yearless-dates.png",
+          siteCode: "CBT",
+          siteName: "Cloudbet",
+          ticketId: "4775768218",
+          placedAt: "31/03 16:37",
+          league: "NBA",
+          marketType: "moneyline",
+          betType: "bonus",
+          selectedTeam: "TOR Raptors",
+          homeTeam: "DET Pistons",
+          awayTeam: "TOR Raptors",
+          eventStartAt: "03/31 08:00 PM",
+          dateSource: "inferred",
+          oddsDecimal: 2.4,
+          stakeAmount: 75,
+          payoutAmount: 180,
+          winAmount: 105,
+          currency: "USD",
+          confidence: 0.85
+        }
+      ]
+    });
+
+    expect(result.bets[0].placedAt).toBe("2026-03-31T20:37:00.000Z");
+    expect(result.bets[0].eventStartAt).toBe("2026-04-01T00:00:00.000Z");
+    expect(result.bets[0].dateSource).toBe("inferred");
+  });
+
   it("accepts straight spread and total extraction rows with required line fields", () => {
     const result = parseExtractedBetBatch({
       sourceFile: "markets.png",
