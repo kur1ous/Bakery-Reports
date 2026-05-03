@@ -15,4 +15,6 @@
 
 The sheet-side source of truth for sportsbook currency is `Site Config`. The initial MBK/TSB rows are examples and can be edited.
 
+Supported straight markets are moneyline, spread, and total. Spread matching requires the same game, different sites, opposite selected teams, and exact opposite signed lines. Total matching requires the same game, different sites, exact same total line, and opposite over/under sides. Pushes settle with `result = push` and `netUsd = 0`.
+
 The settlement trigger only calls The Odds API for leagues that currently have open matched pairs in `Matched Pairs`. If there are no open matched bets, it skips The Odds API entirely for that run.

@@ -4,7 +4,10 @@ import type { ExtractedBetBatch, ReviewedBet } from "./types";
 export const currencySchema = z.enum(["USD", "CAD"]);
 export const leagueSchema = z.enum(["NBA", "NFL", "MLB", "NHL"]);
 export const betTypeSchema = z.enum(["cash", "bonus"]);
+export const marketTypeSchema = z.enum(["moneyline", "spread", "total"]);
+export const totalSideSchema = z.enum(["over", "under"]);
 const dateTimeSchema = z.preprocess(normalizeDateTimeInput, z.string().datetime());
+const marketLineSchema = z.preprocess(normalizeNumberInput, z.number().finite()).nullable().optional();
 
 export const extractedBetSchema = z.object({
   sourceFile: z.string().min(1),
@@ -13,9 +16,11 @@ export const extractedBetSchema = z.object({
   ticketId: z.string().trim().min(1),
   placedAt: dateTimeSchema,
   league: leagueSchema,
-  marketType: z.literal("moneyline"),
+  marketType: marketTypeSchema,
+  marketLine: marketLineSchema,
+  totalSide: totalSideSchema.nullable().optional(),
   betType: betTypeSchema,
-  selectedTeam: z.string().trim().min(1),
+  selectedTeam: z.string().trim(),
   homeTeam: z.string().trim().min(1),
   awayTeam: z.string().trim().min(1),
   eventStartAt: dateTimeSchema,
@@ -27,6 +32,38 @@ export const extractedBetSchema = z.object({
   confidence: z.number().min(0).max(1),
   oddsApiEventId: z.string().trim().min(1).nullable().optional(),
   notes: z.string().nullable().optional()
+}).superRefine((bet, context) => {
+  if ((bet.marketType === "moneyline" || bet.marketType === "spread") && !bet.selectedTeam) {
+    context.addIssue({
+      code: "custom",
+      path: ["selectedTeam"],
+      message: "selectedTeam is required for moneyline and spread bets."
+    });
+  }
+
+  if ((bet.marketType === "spread" || bet.marketType === "total") && bet.marketLine == null) {
+    context.addIssue({
+      code: "custom",
+      path: ["marketLine"],
+      message: "marketLine is required for spread and total bets."
+    });
+  }
+
+  if (bet.marketType === "total" && !bet.totalSide) {
+    context.addIssue({
+      code: "custom",
+      path: ["totalSide"],
+      message: "totalSide is required for total bets."
+    });
+  }
+
+  if (bet.marketType !== "total" && bet.totalSide) {
+    context.addIssue({
+      code: "custom",
+      path: ["totalSide"],
+      message: "totalSide is only allowed for total bets."
+    });
+  }
 });
 
 export const extractedBetBatchSchema = z.object({
@@ -48,7 +85,7 @@ export function parseExtractedBetBatch(input: unknown): ExtractedBetBatch {
     const details = parsed.error.issues
       .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
       .join("; ");
-    throw new Error(`Invalid bet extraction. V1 only supports straight moneyline bets. ${details}`);
+    throw new Error(`Invalid bet extraction. V1 only supports straight moneyline, spread, and total bets. ${details}`);
   }
 
   return parsed.data;
@@ -106,7 +143,16 @@ export const geminiExtractionJsonSchema = {
           ticketId: { type: "string" },
           placedAt: { type: "string", description: "ISO 8601 timestamp. Infer timezone from screenshot when visible." },
           league: { type: "string", enum: ["NBA", "NFL", "MLB", "NHL"] },
-          marketType: { type: "string", enum: ["moneyline"] },
+          marketType: { type: "string", enum: ["moneyline", "spread", "total"] },
+          marketLine: {
+            type: ["number", "null"],
+            description: "Spread line for spread bets, or total points line for over/under bets. Null for moneyline."
+          },
+          totalSide: {
+            type: ["string", "null"],
+            enum: ["over", "under", null],
+            description: "Use over or under for total bets. Null for moneyline and spread."
+          },
           betType: { type: "string", enum: ["cash", "bonus"] },
           selectedTeam: { type: "string" },
           homeTeam: { type: "string" },
@@ -125,6 +171,24 @@ export const geminiExtractionJsonSchema = {
     }
   }
 } as const;
+
+function normalizeNumberInput(value: unknown): unknown {
+  if (typeof value === "number" || value == null) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const normalized = value.trim().replace(/^[OU]\s*/i, "");
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : value;
+}
 
 function normalizeDateTimeInput(value: unknown): unknown {
   if (typeof value !== "string") {

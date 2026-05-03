@@ -30,7 +30,9 @@ const RAW_HEADERS = [
   "oddsApiEventId",
   "notes",
   "rawJson",
-  "ingestedAt"
+  "ingestedAt",
+  "marketLine",
+  "totalSide"
 ];
 
 const MATCHED_HEADERS = [
@@ -46,7 +48,9 @@ const MATCHED_HEADERS = [
   "eventStartAt",
   "oddsApiEventId",
   "createdAt",
-  "issue"
+  "issue",
+  "marketType",
+  "marketLine"
 ];
 
 const CLEAN_HEADERS = [
@@ -138,7 +142,7 @@ function ingestReviewedBets(bets) {
 function rebuildMatchedPairs() {
   const rawSheet = SpreadsheetApp.getActive().getSheetByName(SHEETS.RAW);
   const matchSheet = SpreadsheetApp.getActive().getSheetByName(SHEETS.MATCHED);
-  const bets = readObjects_(rawSheet).filter(function (bet) { return bet.marketType === "moneyline"; });
+  const bets = readObjects_(rawSheet).filter(isSupportedStraightBet_);
   const used = new Set();
   const pairs = [];
   const now = new Date().toISOString();
@@ -150,7 +154,7 @@ function rebuildMatchedPairs() {
       .filter(function (candidate) { return !used.has(candidate.id) && candidate.id !== bet.id; })
       .filter(function (candidate) { return candidate.siteCode !== bet.siteCode; })
       .filter(function (candidate) { return gameKey_(candidate) === gameKey_(bet); })
-      .filter(function (candidate) { return normalizeTeamName_(candidate.selectedTeam) !== normalizeTeamName_(bet.selectedTeam); })
+      .filter(function (candidate) { return isPairMatch_(bet, candidate); })
       .sort(function (a, b) { return Math.abs(Number(bet.payoutAmount) - Number(a.payoutAmount)) - Math.abs(Number(bet.payoutAmount) - Number(b.payoutAmount)); });
 
     if (matches.length === 0) return;
@@ -171,7 +175,9 @@ function rebuildMatchedPairs() {
       eventStartAt: bet.eventStartAt,
       oddsApiEventId: bet.oddsApiEventId || match.oddsApiEventId || "",
       createdAt: now,
-      issue: ""
+      issue: "",
+      marketType: bet.marketType,
+      marketLine: matchedMarketLine_(bet)
     });
   });
 
@@ -188,6 +194,41 @@ function rebuildMatchedPairs() {
     pairs: pairs.length,
     unmatched: bets.filter(function (bet) { return !used.has(bet.id); }).length
   };
+}
+
+function isSupportedStraightBet_(bet) {
+  if (bet.marketType === "moneyline") {
+    return Boolean(bet.selectedTeam);
+  }
+  if (bet.marketType === "spread") {
+    return Boolean(bet.selectedTeam) && bet.marketLine !== "" && bet.marketLine != null;
+  }
+  return bet.marketType === "total" && bet.marketLine !== "" && bet.marketLine != null && Boolean(bet.totalSide);
+}
+
+function isPairMatch_(bet, candidate) {
+  if (candidate.marketType !== bet.marketType) return false;
+
+  if (bet.marketType === "moneyline") {
+    return normalizeTeamName_(candidate.selectedTeam) !== normalizeTeamName_(bet.selectedTeam);
+  }
+
+  if (bet.marketType === "spread") {
+    return (
+      normalizeTeamName_(candidate.selectedTeam) !== normalizeTeamName_(bet.selectedTeam) &&
+      linesEqual_(Number(bet.marketLine) + Number(candidate.marketLine), 0)
+    );
+  }
+
+  return (
+    linesEqual_(Number(bet.marketLine), Number(candidate.marketLine)) &&
+    String(bet.totalSide).toLowerCase() !== String(candidate.totalSide).toLowerCase()
+  );
+}
+
+function matchedMarketLine_(bet) {
+  if (bet.marketLine === "" || bet.marketLine == null) return "";
+  return bet.marketType === "spread" ? Math.abs(Number(bet.marketLine)) : Number(bet.marketLine);
 }
 
 function settleRecentGames() {
@@ -229,8 +270,9 @@ function settleRecentGames() {
       const fxRate = bet.currency === "CAD" ? getOrFetchFxRate_(dateOnly_(bet.placedAt)) : 1;
       const stakeUsd = convertToUsd_(Number(bet.stakeAmount), bet.currency, fxRate);
       const payoutUsd = convertToUsd_(Number(bet.payoutAmount), bet.currency, fxRate);
-      const didWin = normalizeTeamName_(winningTeam) === normalizeTeamName_(bet.selectedTeam);
-      const netUsd = settleNetUsd_(bet, winningTeam, fxRate);
+      const result = resultForBet_(bet, score, winningTeam);
+      if (!result) return;
+      const netUsd = netUsdForResult_(bet, result, stakeUsd, payoutUsd, fxRate);
       const runningBalance = latestBalance_(cleanSheet, bet.siteCode) + netUsd;
 
       rows.push([
@@ -241,7 +283,7 @@ function settleRecentGames() {
         bet.siteCode,
         bet.selectedTeam,
         winningTeam,
-        didWin ? "win" : "loss",
+        result,
         stakeUsd,
         payoutUsd,
         netUsd,
@@ -372,15 +414,62 @@ function getOrFetchFxRate_(date) {
   return rate;
 }
 
-function settleNetUsd_(bet, winningTeam, fxRate) {
-  const didWin = normalizeTeamName_(winningTeam) === normalizeTeamName_(bet.selectedTeam);
-  if (!didWin) return bet.betType === "bonus" ? 0 : -convertToUsd_(Number(bet.stakeAmount), bet.currency, fxRate);
+function resultForBet_(bet, score, winningTeam) {
+  if (bet.marketType === "moneyline") {
+    return normalizeTeamName_(winningTeam) === normalizeTeamName_(bet.selectedTeam) ? "win" : "loss";
+  }
+
+  if (bet.marketType === "spread") {
+    if (bet.marketLine === "" || bet.marketLine == null) return null;
+    const selectedScore = scoreForTeam_(score, bet.selectedTeam);
+    const opponentScore = opponentScoreForTeam_(score, bet.selectedTeam);
+    if (selectedScore == null || opponentScore == null) return null;
+
+    const adjustedMargin = selectedScore + Number(bet.marketLine) - opponentScore;
+    if (linesEqual_(adjustedMargin, 0)) return "push";
+    return adjustedMargin > 0 ? "win" : "loss";
+  }
+
+  if (bet.marketType === "total") {
+    if (bet.marketLine === "" || bet.marketLine == null || !bet.totalSide) return null;
+    const totalScore = score.scores.reduce(function (sum, teamScore) {
+      return sum + Number(teamScore.score);
+    }, 0);
+    const margin = totalScore - Number(bet.marketLine);
+    if (linesEqual_(margin, 0)) return "push";
+    return String(bet.totalSide).toLowerCase() === "over" ? (margin > 0 ? "win" : "loss") : margin < 0 ? "win" : "loss";
+  }
+
+  return null;
+}
+
+function scoreForTeam_(score, team) {
+  const row = score.scores.find(function (teamScore) {
+    return normalizeTeamName_(teamScore.name) === normalizeTeamName_(team);
+  });
+  return row ? Number(row.score) : null;
+}
+
+function opponentScoreForTeam_(score, team) {
+  const row = score.scores.find(function (teamScore) {
+    return normalizeTeamName_(teamScore.name) !== normalizeTeamName_(team);
+  });
+  return row ? Number(row.score) : null;
+}
+
+function netUsdForResult_(bet, result, stakeUsd, payoutUsd, fxRate) {
+  if (result === "push") return 0;
+  if (result === "loss") return bet.betType === "bonus" ? 0 : -stakeUsd;
   if (bet.betType === "bonus") return convertToUsd_(Number(bet.winAmount), bet.currency, fxRate);
-  return roundUsd_(convertToUsd_(Number(bet.payoutAmount), bet.currency, fxRate) - convertToUsd_(Number(bet.stakeAmount), bet.currency, fxRate));
+  return roundUsd_(payoutUsd - stakeUsd);
 }
 
 function convertToUsd_(amount, currency, fxRate) {
   return roundUsd_(currency === "CAD" ? amount * fxRate : amount);
+}
+
+function linesEqual_(a, b) {
+  return Math.abs(Number(a) - Number(b)) < 0.0001;
 }
 
 function roundUsd_(value) {
@@ -408,11 +497,23 @@ function markSettledPairs_() {
 }
 
 function validateBet_(bet) {
-  const required = ["id", "siteCode", "siteName", "ticketId", "placedAt", "league", "marketType", "betType", "selectedTeam", "homeTeam", "awayTeam", "eventStartAt", "currency"];
+  const required = ["id", "siteCode", "siteName", "ticketId", "placedAt", "league", "marketType", "betType", "homeTeam", "awayTeam", "eventStartAt", "currency"];
   required.forEach(function (field) {
     if (bet[field] == null || bet[field] === "") throw new Error("Missing reviewed bet field: " + field);
   });
-  if (bet.marketType !== "moneyline") throw new Error("Only straight moneyline bets are supported.");
+  if (["moneyline", "spread", "total"].indexOf(bet.marketType) === -1) throw new Error("Unsupported market type: " + bet.marketType);
+  if ((bet.marketType === "moneyline" || bet.marketType === "spread") && !bet.selectedTeam) {
+    throw new Error("selectedTeam is required for moneyline and spread bets.");
+  }
+  if ((bet.marketType === "spread" || bet.marketType === "total") && (bet.marketLine == null || bet.marketLine === "")) {
+    throw new Error("marketLine is required for spread and total bets.");
+  }
+  if (bet.marketType === "total" && ["over", "under"].indexOf(String(bet.totalSide).toLowerCase()) === -1) {
+    throw new Error("totalSide must be over or under for total bets.");
+  }
+  if (bet.marketType !== "total" && bet.totalSide) {
+    throw new Error("totalSide is only allowed for total bets.");
+  }
   if (!SPORT_KEYS[bet.league]) throw new Error("Unsupported league: " + bet.league);
   if (["USD", "CAD"].indexOf(bet.currency) === -1) throw new Error("Unsupported currency: " + bet.currency);
 }

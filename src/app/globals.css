@@ -131,6 +131,27 @@ button:disabled {
   line-height: 1.6;
 }
 
+.statusArea {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-height: 52px;
+}
+
+.loadingAnimationSlot {
+  display: grid;
+  width: 160px;
+  height: 44px;
+  place-items: center;
+  overflow: hidden;
+}
+
+.loadingAnimationSlot dotlottie-wc {
+  width: 120px;
+  height: 120px;
+}
+
 .statusPill {
   max-width: 460px;
   padding: 10px 12px;
@@ -672,6 +693,10 @@ td:first-child input {
 
   .statusPill {
     max-width: none;
+  }
+
+  .statusArea {
+    justify-content: flex-start;
   }
 
   .reviewActions,
